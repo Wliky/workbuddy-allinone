@@ -1,0 +1,68 @@
+# WorkBuddy 一体化部署（单容器单端口）
+#
+#   1) cp 上游 config.example.json 到 ./upstream/config.json 并按需修改
+#      （其实不准备也行：首启会自动生成，并自动补一把内部 API 密钥）
+#   2) mkdir -p data upstream/auths upstream/data
+#   3) chown -R 10001:10001 data upstream        # Linux 宿主必须做，见下方说明
+#   4) 改掉下面的 WB_ADMIN_PASSWORD
+#   5) docker compose up -d
+#   6) 浏览器打开 http://<设备IP>:7864
+#
+# 与「两个容器分别跑上游和面板」的区别：这里只有一个容器、一个端口。
+# 上游 Go 进程由面板直接托管（不再是第二个容器），因此：
+#   · 不需要 docker.sock，不需要 docker CLI / compose 插件
+#   · 上游监听容器内回环 7863，容器外无从触及
+#   · 「重启上游」就是一次进程重启，不涉及任何编排层
+
+services:
+  workbuddy:
+    # 用 CI 构建好的多架构镜像（含 linux/arm/v7，玩客云可直接拉）
+    image: ghcr.io/CHANGE_ME/workbuddy-allinone:latest
+
+    # 想本地构建就把上面那行注释掉、启用下面两行（需要先跑 scripts/fetch-upstream.sh）
+    # build:
+    #   context: .
+    #   args:
+    #     DEBIAN_MIRROR: mirrors.aliyun.com
+    #     PIP_INDEX_URL: https://pypi.tuna.tsinghua.edu.cn/simple
+
+    container_name: workbuddy
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      # 面板管理员初始密码。不设则随机生成并打进容器日志：
+      #   docker compose logs workbuddy | grep 随机
+      WB_ADMIN_PASSWORD: "CHANGE_ME_强密码"
+      # 反代在后面时置 1，真实 IP 取自 X-Real-IP / X-Forwarded-For
+      WB_TRUST_PROXY: "0"
+      # 只用 HTTPS 访问时置 1（不再依赖反代是否透传协议头）
+      WB_SECURE_COOKIE: "auto"
+      # 改造成「面板 + 已有的外部上游」时置 1：此时不再托管上游进程
+      # WB_UPSTREAM_EXTERNAL: "1"
+      # WB_UPSTREAM_ADDR: "192.168.1.10:7863"
+      # 加号登录方式。http（默认）= 面板进程内直连上游设备授权端点，不依赖外部二进制；
+      # binary = 改回调用内置的 login 工具（与上游 CLI 行为逐字一致，作对照用）。
+      WB_LOGIN_MODE: "http"
+      # 待授权会话的存活时长（秒）。超时后轮询会收到明确的「已过期」而不是一直等。
+      # WB_LOGIN_TTL: "900"
+      # 设备授权端点，仅在企业内网换域名 / 跑测试时才需要覆盖。
+      # WB_OAUTH_CN_BASE: "https://copilot.tencent.com"
+      # WB_OAUTH_CN_ORIGIN: "https://www.codebuddy.cn"
+      # WB_OAUTH_GLOBAL_BASE: "https://www.workbuddy.ai"
+      # 设备授权请求是否带 cookie jar（默认关）。
+      # WB_OAUTH_COOKIE_JAR: "0"
+    ports:
+      # 面板持有全部账号凭据，也对外提供 API 网关，建议：
+      #   · 只想本机用/挂反代 → "127.0.0.1:7864:7864"
+      #   · 局域网直接用      → "7864:7864"，并确保有强密码 + 防火墙
+      - "7864:7864"
+    volumes:
+      # 面板数据库、审计、上游日志缓冲
+      - ./data:/srv/data
+      # 上游的 config.json / auths/ / state.json —— 账号凭证在这里，务必备份
+      - ./upstream:/srv/upstream
+    # 玩客云内存紧张，给个上限避免 OOM 拖垮整机；按实际内存调整
+    deploy:
+      resources:
+        limits:
+          memory: 512M

@@ -1,0 +1,10 @@
+# 只用纯 Python 或有 armv7 轮子的依赖。
+#
+# 关键：**不要**写 uvicorn[standard]。它会拉 uvloop / httptools / PyYAML，
+# 这三个在 PyPI 上都没有 armv7 wheel（实测 0 个），pip 会退到源码编译，
+# 而 slim 镜像里没有 gcc —— 构建必挂。裸 uvicorn 用 asyncio + h11，
+# 对这个量级的管理面板完全够用。
+fastapi>=0.115,<1.0
+uvicorn>=0.30,<1.0
+httpx>=0.27,<1.0
+pydantic>=2.7,<3.0

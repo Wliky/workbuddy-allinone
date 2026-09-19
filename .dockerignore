@@ -1,0 +1,28 @@
+# 构建上下文裁剪：镜像里只需要 app/、web/ 和上游源码 upstream-src/。
+
+# 注意：**不要**把 upstream-src 排除掉，Dockerfile 要从它编译上游二进制。
+upstream-src/.git
+upstream-src/.github
+upstream-src/docs
+upstream-src/*.log
+
+# 运行期数据绝不进镜像
+data/
+upstream/
+*.db
+*.db-wal
+*.db-shm
+.session_secret
+upstream.log
+
+# 本地开发残留
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+.git
+.gitignore
+*.md
+!README.md

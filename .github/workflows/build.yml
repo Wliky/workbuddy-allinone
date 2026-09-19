@@ -1,0 +1,132 @@
+# 多架构构建：amd64 / arm64 / armv7（玩客云等 32 位 ARM 设备）。
+#
+# 三条相对「惯性写法」的刻意取舍，都是踩过的坑：
+#
+# 1) **cross-compile 而不是 QEMU 编译**：Go 阶段钉在 BUILDPLATFORM 上原生交叉编译。
+#    CGO_ENABLED=0 时 Go 自己就是交叉编译器，用 runner 的 amd64 全速跑，
+#    比在 QEMU 模拟的 armv7 里编译快一个数量级。
+#
+# 2) **provenance/sbom 必须关**：buildx 默认往 manifest 里塞 attestation 条目，
+#    玩客云上常见的 Docker 19/20 会因此报 "unknown/unknown platform" 拉不动镜像。
+#    这个坑在 amd64 机器上完全不会暴露。
+#
+# 3) **额外导出 armv7 离线 tar.gz**：ghcr.io 在国内经常超时，离线包可 docker load。
+name: Build & Publish (multi-arch)
+
+on:
+  push:
+    tags: ['v*']
+  # 定时跟随上游：上游是每日构建的活跃仓库，这里每天也跟一次
+  schedule:
+    - cron: '37 4 * * *'
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: '覆盖 upstream.lock 里的上游 ref（留空则按 lock 文件）'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉取上游源码
+        id: upstream
+        run: |
+          # repo 一律以 upstream.lock 为准（可能是自己的 fork）。
+          # 这里曾经硬编码过官方仓库，结果手动触发时把 lock 里的 fork 覆盖掉了。
+          UP_REPO="$(grep -E '^repo=' upstream.lock | cut -d= -f2- | tr -d '[:space:]')"
+          UP_REPO="${UP_REPO:-Sliverkiss/workbuddy2api}"
+          echo "上游仓库：$UP_REPO"
+          if [ -n "${{ inputs.upstream_ref }}" ]; then
+            bash scripts/fetch-upstream.sh "$UP_REPO" "${{ inputs.upstream_ref }}"
+          else
+            bash scripts/fetch-upstream.sh
+          fi
+          echo "commit=$(cat upstream-src.commit)" >> "$GITHUB_OUTPUT"
+
+      - name: 记录上游版本
+        run: |
+          echo "上游提交：${{ steps.upstream.outputs.commit }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "上游 ref：$(grep -E '^ref=' upstream.lock || true)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 计算镜像名（GHCR 要求全小写）
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: 构建并推送（amd64 / arm64 / armv7）
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:armv7
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+          build-args: |
+            DEBIAN_MIRROR=mirrors.aliyun.com
+            PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+            UPSTREAM_COMMIT=${{ steps.upstream.outputs.commit }}
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 导出 armv7 离线包
+        run: |
+          docker buildx build \
+            --platform linux/arm/v7 \
+            --file Dockerfile \
+            --build-arg DEBIAN_MIRROR=mirrors.aliyun.com \
+            --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+            --build-arg UPSTREAM_COMMIT=${{ steps.upstream.outputs.commit }} \
+            --provenance=false \
+            --tag workbuddy-allinone:armv7 \
+            --output type=docker,dest=workbuddy-armv7.tar .
+          gzip -f workbuddy-armv7.tar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workbuddy-allinone-armv7
+          path: workbuddy-armv7.tar.gz
+          if-no-files-found: error
+
+      - name: 部署说明
+        run: |
+          cat <<'EOF' >> $GITHUB_STEP_SUMMARY
+
+          ## 在玩客云上部署
+
+          ```bash
+          mkdir -p data upstream/auths upstream/data
+          chown -R 10001:10001 data upstream
+          docker compose up -d
+          ```
+
+          拉不动 ghcr.io 时，用本 workflow 产出的 armv7 离线包：
+
+          ```bash
+          docker load -i workbuddy-armv7.tar.gz
+          # 然后把 compose 里的 image 改成 workbuddy-allinone:armv7
+          ```
+          EOF

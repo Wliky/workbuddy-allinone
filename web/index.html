@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>WorkBuddy 一体化控制台</title>
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%232563eb'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif'>W</text></svg>">
+</head>
+<body>
+
+<!-- ── 登录 ───────────────────────────────────────────────── -->
+<div id="login-mask" class="mask hidden">
+  <form id="login-form" class="login-card">
+    <div class="brand-lg">WorkBuddy</div>
+    <p class="muted">一体化控制台 · 账号池 + 网关 + 面板</p>
+    <label>用户名<input name="username" value="admin" autocomplete="username" required></label>
+    <label>密码<input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary block" type="submit">登录</button>
+    <p id="login-error" class="error hidden"></p>
+    <p class="muted tiny">首次部署的初始密码在容器日志里（<code>docker logs</code>），或在环境变量 WB_ADMIN_PASSWORD 中指定。</p>
+  </form>
+</div>
+
+<!-- ── 主界面 ─────────────────────────────────────────────── -->
+<div id="app" class="layout hidden">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo">W</span>
+      <div>
+        <div class="brand-name">WorkBuddy</div>
+        <div class="brand-sub" id="side-version">一体化控制台</div>
+      </div>
+    </div>
+    <nav id="nav">
+      <a href="#/dashboard" data-view="dashboard"><i>▤</i>仪表盘</a>
+      <a href="#/accounts"  data-view="accounts"><i>◎</i>账号管理</a>
+      <a href="#/keys"      data-view="keys"><i>⚿</i>API 密钥</a>
+      <a href="#/logs"      data-view="logs"><i>≡</i>请求日志</a>
+      <a href="#/usage"     data-view="usage"><i>◔</i>用量统计</a>
+      <a href="#/models"    data-view="models"><i>◇</i>模型中心</a>
+      <a href="#/playground" data-view="playground"><i>▶</i>聊天测试台</a>
+      <a href="#/settings"  data-view="settings"><i>⚙</i>系统设置</a>
+    </nav>
+    <div class="side-foot">
+      <div id="upstream-pill" class="pill">上游状态检测中…</div>
+      <button id="btn-logout" class="btn ghost tiny block">退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1 id="view-title">仪表盘</h1>
+      <div class="topbar-right">
+        <span id="meta-accounts" class="muted tiny"></span>
+        <button id="btn-refresh" class="btn tiny">刷新</button>
+      </div>
+    </header>
+    <div id="view" class="view"></div>
+  </main>
+</div>
+
+<div id="toasts" class="toasts"></div>
+
+<!-- 新建密钥的明文只出现一次 -->
+<div id="key-mask" class="mask hidden">
+  <div class="modal">
+    <h3>请立即保存这把密钥</h3>
+    <p class="muted">服务端只保存散列，关闭后<b>无法再取回明文</b>。</p>
+    <div class="key-box"><code id="key-plain"></code><button class="btn tiny" id="key-copy">复制</button></div>
+    <div class="modal-foot"><button class="btn primary" id="key-done">我已保存</button></div>
+  </div>
+</div>
+
+<script src="/assets/app.js"></script>
+</body>
+</html>

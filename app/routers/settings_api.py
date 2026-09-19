@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api", tags=["system"])
 
 
 def _meminfo() -> dict:
-    """玩客云上「还剩多少内存」是最常问的问题，直接读 /proc。"""
+    """小内存设备上「还剩多少内存」是最常问的问题，直接读 /proc。"""
     out = {}
     try:
         for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():

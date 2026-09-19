@@ -1,7 +1,9 @@
 # WorkBuddy 一体化控制台
 
 把 **上游网关 + Web 管理面板 + OpenAI 兼容入口** 收进**一个容器、一个端口**。
-面向玩客云（Amlogic S805 / armv7 / 1GB）这类弱设备设计。
+
+镜像构建三个架构：`linux/amd64`、`linux/arm64`、`linux/arm/v7`。
+armv7（32 位 ARM）是明确支持的目标，依赖选型与前端方案都按它能跑通来定。
 
 ```bash
 docker compose up -d      # 然后打开 http://<设备IP>:7864
@@ -47,7 +49,7 @@ OpenAI 客户端 ──/v1─▶│   ├─ /            面板前端（零构�
 
 **唯一真实的代价**：上游和面板同生共死，不能单独升降某一个。
 考虑到面板本来就是给上游配的、两者接口强耦合，这个代价我认为值得 —— 换来的是
-玩客云上少一层权限暴露、少一类 Docker 版本兼容问题、少一个会失配的编排层。
+设备上少一层权限暴露、少一类 Docker 版本兼容问题、少一个会失配的编排层。
 
 ### 三个明确的工程决定
 
@@ -77,11 +79,9 @@ workbuddy-allinone/
 ├── upstream-src/            构建时拉下来的上游源码（不进版本库）
 ├── upstream.lock            上游仓库与 ref 的锁定声明
 ├── scripts/
-│   ├── fetch-upstream.sh    按 upstream.lock 拉上游源码
-│   └── remote.py            ★ 远程工具：SSH 探测环境 / 部署到玩客云
+│   └── fetch-upstream.sh    按 upstream.lock 拉上游源码
 ├── tests/
-│   ├── smoke_test.py        端到端（真起服务、真发 HTTP，75 项断言）
-│   └── test_remote.py       remote.py 的单元测试（无需 SSH）
+│   └── smoke_test.py        端到端（真起服务、真发 HTTP，75 项断言）
 ├── Dockerfile               两阶段：Go 交叉编译 → python:3.12-slim 运行时
 ├── docker-compose.yml
 └── .github/workflows/build.yml
@@ -128,60 +128,15 @@ docker compose logs workbuddy | grep 随机                # 没设密码时在�
 > 属主不对的典型症状是「面板显示 0 个账号、auths/ 里明明有文件」，
 > 或者启动时报 `sqlite3.OperationalError: unable to open database file`。
 
-### 3.4 远程部署到玩客云（`scripts/remote.py`）
-
-不想在设备上敲命令的话，可以用自带的远程工具：走 SSH 连上去，先探测再部署，
-过程中不需要在玩客云上装任何东西（Docker 本身除外）。
-
-```bash
-pip install paramiko
-
-# 第一步：只探测，不改任何东西
-python scripts/remote.py probe --host 192.168.1.50 --user root
-
-# 第二步：部署
-python scripts/remote.py deploy --host 192.168.1.50 --user root \
-    --image ghcr.io/<你的用户名>/workbuddy-allinone:armv7
-
-# 国内拉不动 ghcr.io 时，改用 CI 产出的离线包
-python scripts/remote.py deploy --host 192.168.1.50 --user root \
-    --image-tar ./workbuddy-armv7.tar.gz
-```
-
-`probe` 输出一份结论表，逐项标出 OK / WARN / FAIL：
-
-| 判定 | 含义 |
-|---|---|
-| `架构 = armv7l` | 与 armv7 镜像匹配 |
-| `架构 = aarch64` | 是 64 位 —— 改用 arm64 镜像，别用 armv7（能跑但白白丢掉 64 位优势） |
-| `架构 = armv6l` | Go 与 Python 均不支持，无法部署 |
-| `内存 < 1024MB` | 能跑但没余量，建议加 swap（1GB 版就落在这档） |
-| `内存 < 512MB` | 放弃，跑不起来 |
-| `Compose = WARN` | 只有 v1（docker-compose），工具会自动切 v1 命令 |
-| `Docker 守护 = FAIL` | docker 装了但没运行，或当前用户无权访问 docker.sock |
-
-`deploy` 的行为值得说明三点：
-
-- 上传的是**生成的精简 compose，不带 build 段**。仓库里那份带 build 段，
-  在 1GB 内存的设备上误触发构建会直接卡死。
-- **管理员密码在本地随机生成并直接打印**，不依赖容器日志，密码也不落日志。
-- 健康检查读的是容器自带的 HEALTHCHECK 状态（不假设宿主机有 curl），
-  老 docker 不报该字段时兜底在容器内直接打探针。
-
-> **老旧 sshd**：玩客云上的 dropbear / 老 openssh 会被 paramiko 5 以
-> `no matching host key type` 拒绝。脚本捕获该错误后会自动放宽算法重试一次。
-
----
-
-## 四、玩客云（armv7）注意事项
+## 四、armv7 设备注意事项
 
 | 项 | 说明 |
 |---|---|
-| 架构确认 | 先 `uname -m`。输出 `armv7l` 才需要 armv7 镜像；若为 `aarch64`（部分改版/刷机版），用 arm64 镜像即可 |
-| 内存 | S805 是 4×Cortex-A5 + 1GB。双运行时（Python 面板 + Go 网关）约 400–500MB，能跑但不宽裕。**512MB 版本不要尝试** |
-| 磁盘 | 镜像约 400–500MB（比双容器方案少掉 docker CLI + compose 插件 + Node 产物），加数据卷后 8GB eMMC 够用 |
+| 架构确认 | 先 `uname -m`。输出 `armv7l` 用 armv7 镜像；`aarch64` 用 arm64 镜像 |
+| 内存 | 双运行时（Python 面板 + Go 网关）约 400–500MB。1GB 内存能跑但不宽裕，512MB 不建议 |
+| 磁盘 | 镜像约 400–500MB（比双容器方案少掉 docker CLI + compose 插件 + Node 产物），加数据卷后小容量存储也够用 |
 | ghcr.io | 国内经常超时。用 CI 产出的 armv7 离线包：`docker load -i workbuddy-armv7.tar.gz`，再把 compose 里的 image 改成 `workbuddy-allinone:armv7` |
-| GOARM | Cortex-A5 是 ARMv7-A + VFPv4 且带 NEON，`GOARM=7` 完全满足 |
+| GOARM | `GOARM=7` 要求 ARMv7-A + VFPv3 以上，Cortex-A5/A7/A9 这类常见 armv7 核心都满足 |
 | 老内核 / 老 Docker | 镜像构建时已关掉 `provenance`/`sbom`，避免老客户端遇到 manifest 里的 attestation 条目报 `unknown/unknown platform` |
 | 首次启动 | 首次会自动生成 `upstream/config.json` 并写入一把随机内部 API 密钥。上游只监听容器回环，这把密钥是双保险 |
 
@@ -364,12 +319,6 @@ python tests/smoke_test.py                  # 用当前解释器跑被测服务
 python tests/smoke_test.py --python /path/to/venv/bin/python
 ```
 
-另有 `tests/test_remote.py`（不需要 SSH、不需要真设备），覆盖的是远程部署工具里
-「最容易写错又最难在真机上排查」的两块：生成的 compose 是不是合法 YAML、
-以及环境判定在各种硬件组合下的结论。它抓出过两个真实缺陷 ——
-密码含引号会写坏 YAML、健康探针命令里嵌套引号同样会写坏，
-两者的表现都是「容器起不来」而报错离真正诱因很远。
-
 已验证通过的包括：
 
 - 登录/鉴权边界（错误口令 401、未登录访问管理接口 401、会话续签）
@@ -397,7 +346,7 @@ python tests/smoke_test.py --python /path/to/venv/bin/python
 2. **加号流程没有真实 CodeBuddy 账号跑过**。协议的每一步都已对着假授权端跑通
    （含端点被真实调用的次数），但真实账号的授权页跳转、扫码形态、以及国际版注册
    接口的实际返回码仍需真机确认。首次使用时建议先加一个 cn 账号观察返回文案。
-3. **armv7 实机**：镜像在 GitHub Actions 上构建，未在玩客云上实机验证。
+3. **armv7 实机**：镜像在 GitHub Actions 上构建，未在真实 armv7 设备上验证。
 
 移植依据的实测数据（基础镜像架构声明、PyPI 轮子统计、跨架构构建注意事项）见
 [`docs/armv7-findings.md`](docs/armv7-findings.md)。

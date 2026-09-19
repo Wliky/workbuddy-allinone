@@ -49,9 +49,10 @@ pip 找不到轮子会退到源码编译，而 `python:3.12-slim` 里没有 gcc�
 > 本项目把 docker CLI 与 compose 插件整个去掉了（上游进程由 `app/supervisor.py` 直接托管），
 > 所以这两项在本方案里不再是依赖 —— 上面的 docker CLI 不确定项自动消失了。
 
-## 4. 玩客云硬件
+## 4. armv7 设备的硬件特点
 
-Amlogic S805：4×Cortex-A5 @1.5GHz（ARMv7-A，带 NEON）、1GB DDR3、8GB eMMC。
+以下以一款常见的 armv7 盒子（Amlogic S805：4×Cortex-A5 @1.5GHz、1GB DDR3、8GB eMMC）
+作为参照，同类设备的结论基本一致：
 
 - `GOARM=7` 需要 ARMv7 + VFPv3；Cortex-A5 是 VFPv4 且 S805 带 NEON，满足。
 - Go 的 `GOARM=7` 二进制不要求编译期 NEON，运行时按 HWCAP 探测，兼容。
@@ -74,7 +75,7 @@ Amlogic S805：4×Cortex-A5 @1.5GHz（ARMv7-A，带 NEON）、1GB DDR3、8GB eMM
    ```
 
 2. **buildx 必须关 `provenance` 与 `sbom`**。
-   默认开启时 manifest 里会多出 attestation 条目，玩客云上常见的 Docker 19/20
+   默认开启时 manifest 里会多出 attestation 条目，老设备上常见的 Docker 19/20
    拉取时报 `unknown/unknown platform` 直接失败。**这个坑在 amd64 机器上完全不会暴露**，
    只在目标设备上暴露，排查起来很费时间。
 

@@ -16,7 +16,7 @@
 
 services:
   workbuddy:
-    # 用 CI 构建好的多架构镜像（含 linux/arm/v7，玩客云可直接拉）
+    # 用 CI 构建好的多架构镜像（含 linux/arm/v7，armv7 设备可直接拉）
     image: ghcr.io/CHANGE_ME/workbuddy-allinone:latest
 
     # 想本地构建就把上面那行注释掉、启用下面两行（需要先跑 scripts/fetch-upstream.sh）
@@ -61,7 +61,7 @@ services:
       - ./data:/srv/data
       # 上游的 config.json / auths/ / state.json —— 账号凭证在这里，务必备份
       - ./upstream:/srv/upstream
-    # 玩客云内存紧张，给个上限避免 OOM 拖垮整机；按实际内存调整
+    # 内存紧张的设备给个上限，避免 OOM 拖垮整机；按实际内存调整
     deploy:
       resources:
         limits:

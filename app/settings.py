@@ -77,7 +77,7 @@ ADMIN_USERNAME = _env("WB_ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = _env("WB_ADMIN_PASSWORD", "")          # 留空则首启随机生成并打印
 SESSION_DAYS = _int("WB_SESSION_DAYS", 7)
 SESSION_IDLE_HOURS = _int("WB_SESSION_IDLE_HOURS", 24)
-# 玩客云 A5 单核很慢，迭代次数越高登录越慢（每次登录只算一次）。60000 ≈ 1~3s。
+# armv7 这类小核设备算力弱，迭代次数越高登录越慢（每次登录只算一次）。60000 ≈ 1~3s。
 PBKDF2_ITERATIONS = _int("WB_PBKDF2_ITERS", 60000)
 TRUST_PROXY = _env("WB_TRUST_PROXY", "0") == "1"        # 反代后置 1，取 X-Real-IP
 SECURE_COOKIE = _env("WB_SECURE_COOKIE", "auto")        # auto | 1 | 0

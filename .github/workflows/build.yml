@@ -1,4 +1,4 @@
-# 多架构构建：amd64 / arm64 / armv7（玩客云等 32 位 ARM 设备）。
+# 多架构构建：amd64 / arm64 / armv7（32 位 ARM 设备）。
 #
 # 三条相对「惯性写法」的刻意取舍，都是踩过的坑：
 #
@@ -7,7 +7,7 @@
 #    比在 QEMU 模拟的 armv7 里编译快一个数量级。
 #
 # 2) **provenance/sbom 必须关**：buildx 默认往 manifest 里塞 attestation 条目，
-#    玩客云上常见的 Docker 19/20 会因此报 "unknown/unknown platform" 拉不动镜像。
+#    老设备上的 Docker 19/20 会因此报 "unknown/unknown platform" 拉不动镜像。
 #    这个坑在 amd64 机器上完全不会暴露。
 #
 # 3) **额外导出 armv7 离线 tar.gz**：ghcr.io 在国内经常超时，离线包可 docker load。
@@ -115,7 +115,7 @@ jobs:
         run: |
           cat <<'EOF' >> $GITHUB_STEP_SUMMARY
 
-          ## 在玩客云上部署
+          ## 部署
 
           ```bash
           mkdir -p data upstream/auths upstream/data

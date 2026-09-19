@@ -192,7 +192,7 @@ def log_request(
 
 
 def prune_logs() -> int:
-    """按保留天数与总量上限清理历史，避免玩客云的 eMMC 被日志吃掉。"""
+    """按保留天数与总量上限清理历史，避免小容量存储被日志吃掉。"""
     cutoff = int(time.time()) - settings.LOG_RETENTION_DAYS * 86400
     n = execute("DELETE FROM request_logs WHERE ts < ?", (cutoff,))
     execute(

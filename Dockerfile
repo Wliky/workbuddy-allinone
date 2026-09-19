@@ -50,7 +50,7 @@ ARG PIP_INDEX_URL=""
 ARG UPSTREAM_COMMIT=""
 ARG UPSTREAM_REF="master"
 # 界面上「上游仓库」的展示值，应与实际构建所用的仓库一致（即 upstream.lock 里的 repo）。
-ARG UPSTREAM_REPO="Wliky/workbuddy2api"
+ARG UPSTREAM_REPO="Sliverkiss/workbuddy2api"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

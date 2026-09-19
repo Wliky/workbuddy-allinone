@@ -1,17 +1,16 @@
 # 上游源码的锁定信息。CI 与本地构建都读这个文件。
 #
-# 这里指向的是自己的 fork（Wliky/workbuddy2api），不是官方仓库。
-# 用 fork 的好处是可以在里面放自己的补丁/回退某个上游改动，
-# 而一体化方案下这些改动同样是「结构性地不会被覆盖」的：
+# repo 指向官方仓库。想在上游源码层放自己的补丁，就 fork 一份然后把这里改成
+# 「你的用户名/workbuddy2api」—— 一体化方案下这些改动是「结构性地不会被覆盖」的：
 # 上游代码只在构建期被拉进 upstream-src/、编成二进制后 COPY 进镜像，
 # 运行期容器里根本没有上游源码树。
 #
-# ⚠️ fork 不会自动跟随上游：GitHub 的 fork 需要手动 Sync（或本地 fetch + push）。
-# 想要跟随上游新版本，先去 fork 页面上 Sync fork，再重新构建。
-# 本文件里的 ref 只决定「从你 fork 的哪个分支/tag 拉」。
+# ⚠️ 用 fork 时别忘了：GitHub 的 fork 不会自动跟随上游，需要手动 Sync
+# （或本地 fetch + push）。否则就算官方已经发了很多新版，构建出来的还是旧代码，
+# 而且不会有任何报错提示。本文件里的 ref 只决定「从该仓库的哪个分支/tag 拉」。
 #
 # ref 建议钉在 tag 或 commit 上，而不是 master：
-# 上游是每日定时构建的活跃仓库，跟着 master 走意味着你的 armv7 镜像
+# 上游是频繁更新的活跃仓库，跟着 master 走意味着你的镜像
 # 每次构建都可能引入未验证的改动。要跟随最新就显式写 master。
-repo=Wliky/workbuddy2api
+repo=Sliverkiss/workbuddy2api
 ref=master

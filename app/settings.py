@@ -86,7 +86,7 @@ ENABLE_DOCS = _env("WB_ENABLE_DOCS", "0") == "1"
 # ── 上游维护信息（只用于界面展示与「更新」提示）──────────────────────
 # 默认指向自己的 fork：界面上「上游仓库」的链接与更新提示应该指向你实际构建所用的仓库。
 # 注意 GitHub 的 fork 不会自动跟随官方仓库，需要手动 Sync 后再重新构建。
-UPSTREAM_REPO = _env("WB_UPSTREAM_REPO", "Wliky/workbuddy2api")
+UPSTREAM_REPO = _env("WB_UPSTREAM_REPO", "Sliverkiss/workbuddy2api")
 UPSTREAM_REF = _env("WB_UPSTREAM_REF", "master")
 UPSTREAM_COMMIT = _env("WB_UPSTREAM_COMMIT", "")
 

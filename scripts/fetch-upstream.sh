@@ -36,13 +36,23 @@ rm -rf "$DEST"
 mkdir -p "$DEST"
 
 echo "拉取上游 https://github.com/${REPO}.git  ref=${REF}"
-if git clone --depth 1 --branch "$REF" "https://github.com/${REPO}.git" "$DEST" 2>/dev/null; then
+# 第一次失败的原因必须打出来：最常见的是仓库改名/删除/转私有，
+# 表现为 git 反问 "Username for 'https://github.com'"，只看退出码完全看不出是这回事。
+if ERR="$(git clone --depth 1 --branch "$REF" "https://github.com/${REPO}.git" "$DEST" 2>&1)"; then
     :
 else
     # ref 可能是 commit（--branch 只认分支/标签），退化为完整克隆后 checkout
-    echo "按 ref 直接克隆失败，改为完整克隆后再检出…" >&2
+    echo "按 ref 直接克隆失败：${ERR}" >&2
+    echo "改为完整克隆后再检出…" >&2
     rm -rf "$DEST"; mkdir -p "$DEST"
-    git clone "https://github.com/${REPO}.git" "$DEST"
+    if ! ERR2="$(git clone "https://github.com/${REPO}.git" "$DEST" 2>&1)"; then
+        echo "完整克隆也失败了：${ERR2}" >&2
+        echo "" >&2
+        echo "拉不到 ${REPO}。请确认：仓库存在、名字没拼错、且是 public" >&2
+        echo "（私有仓库需要改用 SSH 或带 token 的地址）。upstream.lock 里的" >&2
+        echo "repo= 与 ref= 决定这里拉的是谁。" >&2
+        exit 1
+    fi
     git -C "$DEST" checkout "$REF"
 fi
 

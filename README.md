@@ -146,18 +146,17 @@ docker compose logs workbuddy | grep 随机                # 没设密码时在�
 
 ```
 上游发新版
-   ↓  ① 去 fork 页面 Sync fork（GitHub 的 fork 不会自动跟随官方仓库）
-   ↓  ② 需要钉版本就改 upstream.lock 的 ref；跟随最新则保持 master
-   ↓  ③ CI 重新从 upstream.lock 的仓库拉源码 → 交叉编译 → 出新镜像
-   ↓  ④ docker compose pull && docker compose up -d
+   ↓  ① 需要钉版本就改 upstream.lock 的 ref；跟随最新则保持 master
+   ↓  ② CI 重新从 upstream.lock 的仓库拉源码 → 交叉编译 → 出新镜像
+   ↓  ③ docker compose pull && docker compose up -d
 ```
 
-上游源码默认从 **自己的 fork** 拉（`upstream.lock` 里 `repo=Wliky/workbuddy2api`）。
-想在 fork 里放自己的补丁尽管放 —— 下面这段说明对它同样成立。
+上游源码默认从**官方仓库**拉（`upstream.lock` 里 `repo=Sliverkiss/workbuddy2api`）。
+想在源码层放自己的补丁，就 fork 一份，再把 `repo=` 改成你的即可 —— 下面这段说明对它同样成立。
 
-> **⚠️ 别忘了第 ① 步**：`ref=master` 跟的是**你 fork 的 master**，不是官方仓库的 master。
+> **⚠️ 用 fork 时别忘了先 Sync**：GitHub 的 fork 不会自动跟随上游。
+> `ref=master` 跟的是**你 fork 的 master**，不是官方仓库的 master ——
 > 没 Sync 的话，就算官方已经发了很多新版，构建出来的还是旧代码，而且不会有任何报错提示。
-> 想省掉这一步就把 `repo` 改回 `Sliverkiss/workbuddy2api`（代价是没法在源码层加自己的改动）。
 
 **你的定制为什么不会被覆盖**：面板不对上游源码做任何 `git` 操作。
 上游代码只在**构建期**被拉进 `upstream-src/`、编成二进制后 COPY 进镜像；
